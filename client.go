@@ -34,6 +34,12 @@ type Config struct {
 	ReSTClientConfig restclient.Config `json:"VaultConnection"`
 }
 
+type ErrSecretNotFound struct {}
+
+func (e ErrSecretNotFound) Error() string {
+	return "Secret not found in Vault"
+}
+
 func (creds *Credentials) ReadUserID() error {
 	if creds.UserIDFile == "" {
 		return errors.New("Could not read UserID as it is not defined")
@@ -88,6 +94,25 @@ func NewClient(conf *Config, creds *Credentials) (Client, error) {
 	}, nil
 }
 
+func (c *Client) List(p string) (map[string]interface{}, error) {
+	m := make(map[string]interface{})
+	// Refresh the access token to the vault if needs be
+	token, err := c.session.GetToken()
+	if err != nil {
+		return m, fmt.Errorf("Error getting login token to the Vault: %v", err)
+	}
+	c.config.apiClient.SetToken(token)
+	logical := c.config.apiClient.Logical()
+	s, err := logical.List(c.config.SecretsPath + p)
+	if err != nil {
+		return nil, fmt.Errorf("Issue when reading secret from Vault at %s: %v", c.config.SecretsPath+p, err)
+	}
+	if s == nil {
+		return nil, ErrSecretNotFound{}
+	}
+	return s.Data, err
+}
+
 func (c *Client) Read(p string) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
 	// Refresh the access token to the vault if needs be
@@ -99,10 +124,10 @@ func (c *Client) Read(p string) (map[string]interface{}, error) {
 	logical := c.config.apiClient.Logical()
 	s, err := logical.Read(c.config.SecretsPath + p)
 	if err != nil {
-		return m, fmt.Errorf("Issue when reading secret from Vault at %s: %v", c.config.SecretsPath+p, err)
+		return nil, fmt.Errorf("Issue when reading secret from Vault at %s: %v", c.config.SecretsPath+p, err)
 	}
 	if s == nil {
-		return nil, err
+		return nil, ErrSecretNotFound{}
 	}
 	return s.Data, err
 }
@@ -117,4 +142,20 @@ func (c *Client) Write(p string, m map[string]interface{}) error {
 	logical := c.config.apiClient.Logical()
 	_, err = logical.Write(c.config.SecretsPath+p, m)
 	return err
+}
+
+// Delete will delete the secret from Vault. The boolean indicates if the secret was found in the vault to be delete.
+func (c *Client) Delete(p string) error {
+	// Refresh the access token to the vault if needs be
+	token, err := c.session.GetToken()
+	if err != nil {
+		return fmt.Errorf("Error getting login token to the Vault: %v", err)
+	}
+	c.config.apiClient.SetToken(token)
+	logical := c.config.apiClient.Logical()
+	_, err = logical.Delete(c.config.SecretsPath+p)
+	if err != nil {
+		return fmt.Errorf("Issue when deleting secret from Vault at %s: %v", c.config.SecretsPath+p, err)
+	}
+	return nil
 }
