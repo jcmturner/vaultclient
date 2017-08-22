@@ -16,7 +16,7 @@ func TestLogin_NewRequest(t *testing.T) {
 }
 
 func TestLogin_Process(t *testing.T) {
-	s, addr, cp, test_app_id, test_user_id := vaultmock.RunMockVault(t)
+	s, addr, cp, _, test_app_id, test_user_id := vaultmock.RunMockVault(t)
 	defer s.Close()
 	c := restclient.NewConfig().WithEndPoint(addr).WithCACertPool(cp)
 	var l Session
@@ -26,7 +26,7 @@ func TestLogin_Process(t *testing.T) {
 }
 
 func TestLogin_GetToken(t *testing.T) {
-	s, addr, cp, test_app_id, test_user_id := vaultmock.RunMockVault(t)
+	s, addr, cp, _, test_app_id, test_user_id := vaultmock.RunMockVault(t)
 	defer s.Close()
 	c := restclient.NewConfig().WithEndPoint(addr).WithCACertPool(cp)
 	var l Session
