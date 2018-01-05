@@ -34,13 +34,17 @@ type Config struct {
 	ReSTClientConfig restclient.Config `json:"VaultConnection"`
 }
 
-type ErrSecretNotFound struct {}
+type ErrSecretNotFound struct{}
 
 func (e ErrSecretNotFound) Error() string {
 	return "Secret not found in Vault"
 }
 
 func (creds *Credentials) ReadUserID() error {
+	if creds.UserID != "" {
+		// UserID in config overrides reading from file
+		return nil
+	}
 	if creds.UserIDFile == "" {
 		return errors.New("Could not read UserID as it is not defined")
 	}
@@ -70,7 +74,7 @@ func NewClient(conf *Config, creds *Credentials) (Client, error) {
 	if conf.apiClient == nil {
 		c, err := vaultAPI.NewClient(conf.apiConfig)
 		if err != nil {
-			return Client{}, fmt.Errorf("Error creating Vault client: %v", err)
+			return Client{}, fmt.Errorf("error creating Vault client: %v", err)
 		}
 		conf.apiClient = c
 	}
@@ -153,7 +157,7 @@ func (c *Client) Delete(p string) error {
 	}
 	c.config.apiClient.SetToken(token)
 	logical := c.config.apiClient.Logical()
-	_, err = logical.Delete(c.config.SecretsPath+p)
+	_, err = logical.Delete(c.config.SecretsPath + p)
 	if err != nil {
 		return fmt.Errorf("Issue when deleting secret from Vault at %s: %v", c.config.SecretsPath+p, err)
 	}
